@@ -1,96 +1,135 @@
-# Instruction API Documentation
+# Instruction API Reference
 
-The `Instruction` class represents an instruction message in the LION system. It contains detailed information about the instruction, including context, guidance, and request fields.
+## Class Hierarchy
 
-## Class: Instruction
+<antArtifact identifier="instruction-class-hierarchy" type="application/vnd.ant.mermaid" title="Instruction Class Hierarchy">
+classDiagram
+    RoledMessage <|-- Instruction
 
-Inherits from: `RoledMessage`
+    class RoledMessage {
+        +Note content
+        +MessageRole role
+        +str sender
+        +str recipient
+    }
+
+    class Instruction {
+        +str guidance
+        +str instruction
+        +__init__(instruction, context, guidance, images, sender, recipient, request_fields, image_detail)
+        +update_images(images, image_detail)
+        +update_guidance(guidance)
+        +update_request_fields(request_fields)
+        +update_context(*args, **kwargs)
+        +_format_content()
+        +from_form(form, sender, recipient, images, image_detail, strict, assignment, task_description, fill_inputs, none_as_valid_value, input_value_kwargs)
+    }
+
+
+## Instruction
+
+`Instruction` represents an instruction message in the system. It inherits from `RoledMessage` and encapsulates details of an instruction, including guidance, context, and request fields.
 
 ### Attributes
 
-- `content: Note` - The content of the instruction message.
+Inherits all attributes from `RoledMessage`.
 
-### Methods
-
-#### `__init__(instruction: Any | MessageFlag, context: Any | MessageFlag = None, guidance: Any | MessageFlag = None, images: list | MessageFlag = None, sender: Any | MessageFlag = None, recipient: Any | MessageFlag = None, request_fields: dict | MessageFlag = None, image_detail: Literal["low", "high", "auto"] | MessageFlag = None, protected_init_params: dict | None = None)`
-
-Initializes an Instruction instance.
-
-- **Parameters:**
-  - `instruction: Any | MessageFlag` - The main instruction content.
-  - `context: Any | MessageFlag` - The context for the instruction (optional).
-  - `guidance: Any | MessageFlag` - Guidance for the instruction (optional).
-  - `images: list | MessageFlag` - List of images related to the instruction (optional).
-  - `sender: Any | MessageFlag` - The sender of the instruction (optional).
-  - `recipient: Any | MessageFlag` - The recipient of the instruction (optional).
-  - `request_fields: dict | MessageFlag` - Fields to be requested (optional).
-  - `image_detail: Literal["low", "high", "auto"] | MessageFlag` - Detail level for images (optional).
-  - `protected_init_params: dict | None` - Protected initialization parameters (optional).
-
-#### `update_images(images: list | str, image_detail: Literal["low", "high", "auto"] = None)`
-
-Add new images and update the image detail level.
-
-- **Parameters:**
-  - `images: list | str` - New images to add.
-  - `image_detail: Literal["low", "high", "auto"]` - New image detail level (optional).
-
-#### `update_guidance(guidance: str)`
-
-Update the guidance content of the instruction.
-
-- **Parameters:**
-  - `guidance: str` - New guidance content.
-- **Raises:**
-  - `LionTypeError` - If guidance is not a string.
-
-#### `update_request_fields(request_fields: dict)`
-
-Update the requested fields in the instruction.
-
-- **Parameters:**
-  - `request_fields: dict` - New request fields to update.
-
-#### `update_context(*args, **kwargs)`
-
-Add new context to the instruction.
-
-- **Parameters:**
-  - `*args: Any` - Positional arguments to add to context.
-  - `**kwargs: Any` - Keyword arguments to add to context.
-
-### Class Methods
-
-#### `from_form(form: BaseForm | Type[Form], sender: str | None = None, recipient: Any = None, images: str | None = None, image_detail: str | None = None, strict: bool = None, assignment: str = None, task_description: str = None, fill_inputs: bool = True, none_as_valid_value: bool = False, input_value_kwargs: dict = None) -> Instruction`
-
-Create an Instruction instance from a form.
-
-- **Parameters:** (see method signature for details)
-- **Returns:**
-  - `Instruction` - A new Instruction instance created from the form.
-- **Raises:**
-  - `LionTypeError` - If the provided form is invalid.
+- `content` (Note): Contains the instruction details, including guidance, instruction text, context, images, and request fields.
 
 ### Properties
 
-- `guidance: Any` - Returns the guidance content.
-- `instruction: Any` - Returns the main instruction content.
+- `guidance` (str | None): The guidance content of the instruction.
+- `instruction` (str): The main instruction content.
+
+### Methods
+
+#### `__init__(self, instruction: Any | MessageFlag, context: Any | MessageFlag = None, guidance: Any | MessageFlag = None, images: list | MessageFlag = None, sender: Any | MessageFlag = None, recipient: Any | MessageFlag = None, request_fields: dict | MessageFlag = None, image_detail: Literal["low", "high", "auto"] | MessageFlag = None, protected_init_params: dict | None = None) -> None`
+
+Initializes an Instruction instance.
+
+#### `update_images(self, images: list | str, image_detail: Literal["low", "high", "auto"] = None) -> None`
+
+Add new images and update the image detail level.
+
+#### `update_guidance(self, guidance: str) -> None`
+
+Update the guidance content of the instruction.
+
+#### `update_request_fields(self, request_fields: dict) -> None`
+
+Update the requested fields in the instruction.
+
+#### `update_context(self, *args, **kwargs) -> None`
+
+Add new context to the instruction.
+
+#### `_format_content(self) -> dict[str, Any]`
+
+Format the content of the instruction.
+
+#### `@classmethod from_form(cls, *, form: BaseForm | type[Form], sender: str | None = None, recipient: Any = None, images: str | None = None, image_detail: str | None = None, strict: bool = None, assignment: str = None, task_description: str = None, fill_inputs: bool = True, none_as_valid_value: bool = False, input_value_kwargs: dict = None) -> "Instruction"`
+
+Create an Instruction instance from a form.
+
+### Helper Functions
+
+#### `prepare_request_response_format(request_fields: dict) -> str`
+
+Prepare the format for request response.
+
+#### `format_image_content(text_content: str, images: list, image_detail: Literal["low", "high", "auto"]) -> dict[str, Any]`
+
+Format text content with images for message content.
+
+#### `prepare_instruction_content(guidance: str | None = None, instruction: str | None = None, context: str | dict | list | None = None, request_fields: dict | None = None, images: str | list | None = None, image_detail: Literal["low", "high", "auto"] | None = None) -> Note`
+
+Prepare the content for an instruction message.
 
 ### Usage Example
 
 ```python
+from lion_core.communication.instruction import Instruction
+
+# Create a basic instruction
 instruction = Instruction(
-    instruction="Calculate the sum of two numbers",
-    context={"operation": "addition"},
-    guidance="Use the provided calculator function",
-    sender="user_1",
-    recipient="math_service",
-    request_fields={"num1": "int", "num2": "int"}
+    instruction="Perform task X",
+    context="Context for task X",
+    guidance="Guidance for performing task X",
+    sender="user_id",
+    recipient="assistant_id"
 )
 
-print(instruction.instruction)  # Output: Calculate the sum of two numbers
-instruction.update_guidance("Ensure both numbers are positive integers")
-print(instruction.guidance)  # Output: Ensure both numbers are positive integers
+# Access properties
+print(instruction.instruction)  # Output: "Perform task X"
+print(instruction.guidance)  # Output: "Guidance for performing task X"
+
+# Update the instruction
+instruction.update_guidance("Updated guidance for task X")
+instruction.update_context(additional_info="This is additional context")
+instruction.update_images(["image1.jpg", "image2.jpg"], image_detail="high")
+
+# Create an instruction from a form
+from lion_core.form import Form
+
+class TaskForm(Form):
+    task_name: str
+    task_description: str
+
+form_instance = TaskForm(task_name="Task Y", task_description="Description of Task Y")
+form_instruction = Instruction.from_form(
+    form=form_instance,
+    sender="user_id",
+    recipient="assistant_id"
+)
+
+print(form_instruction.instruction)  # Output will depend on the Form's instruction_dict
 ```
 
-This example demonstrates how to create an Instruction instance and use its methods to update content.
+This Instruction class provides a flexible way to represent instruction messages within the system. It can handle various types of content, including text instructions, guidance, context, images, and form-based instructions. The class offers methods to update different aspects of the instruction, making it adaptable to changing requirements during a conversation or task execution.
+
+### Notes
+
+- The `Instruction` class uses the `USER` role from the `MessageRole` enum, indicating that instructions typically come from the user side of the conversation.
+- The `from_form` class method allows creation of instructions directly from Form objects, facilitating integration with form-based workflows.
+- Image handling includes support for multiple images and different detail levels, useful for instructions that require visual context.
+- The `update_context` method allows for flexible addition of context, supporting both positional and keyword arguments.

@@ -1,164 +1,114 @@
-# ActionProcessor API Documentation
+# Processor API Reference
 
-The `ActionProcessor` class handles the execution of actions in the Lion framework. It manages concurrency, throttling, and provides retry and error handling capabilities.
+## Class Hierarchy
 
-
-```mermaid
+<antArtifact identifier="processor-class-hierarchy" type="application/vnd.ant.mermaid" title="Processor Class Hierarchy">
 classDiagram
-    class ObservableAction {
-        +status: EventStatus
-        +execution_time: float
-        +response: Any
-        +error: str
-        +retry_config: dict
-        +alog() BaseLog
-        +to_log() BaseLog
-        +to_dict() dict
+    AbstractObserver <|-- BaseProcessor
+    BaseProcessor <|-- ActionProcessor
+
+    class AbstractObserver {
+        <<abstract>>
     }
 
-    class FunctionCalling {
-        +func_tool: Tool
-        +arguments: dict
-        +function_name: str
-        +invoke() Any
-    }
-
-    class ActionExecutor {
-        +manage actions
-        +coordinate processing
+    class BaseProcessor {
+        +int capacity
+        +float refresh_time
+        +Queue queue
+        +Event _stop_event
+        +int available_capacity
+        +bool execution_mode
+        +enqueue(event: Event)
+        +dequeue() Event
+        +join()
+        +stop()
+        +start()
+        +is_stopped() bool
+        +create(**kwargs) BaseProcessor
+        +process()*
+        +request_permission(**kwargs) bool
+        +execute()
     }
 
     class ActionProcessor {
-        +process actions
-        +handle concurrency
+        +type observation_type
+        +process()
     }
 
-    ObservableAction <|-- FunctionCalling
-    ActionExecutor --> ObservableAction : creates
-    ActionProcessor --> ObservableAction : processes
-    ActionExecutor --> ActionProcessor : sends actions for processing
-```
 
+## BaseProcessor
 
-## Class: ActionProcessor
+`BaseProcessor` is an abstract base class for processing events in the Lion framework.
 
 ### Attributes
 
-- `capacity: int` - Maximum number of actions processed concurrently.
-- `queue: asyncio.Queue` - Queue holding actions to be processed.
-- `_stop_event: asyncio.Event` - Event to signal stopping the processing.
-- `available_capacity: int` - The remaining processing capacity.
-- `execution_mode: bool` - Flag indicating if processor is executing.
-- `refresh_time: float` - Time interval between processing cycles.
-
-### Properties
-
-- `stopped: bool` - Indicates whether the processor has been stopped.
+- `capacity` (int): Maximum number of events processed concurrently.
+- `refresh_time` (float): Time interval between processing cycles.
+- `queue` (asyncio.Queue): Queue holding events to be processed.
+- `_stop_event` (asyncio.Event): Event to signal stopping the processing.
+- `available_capacity` (int): The remaining processing capacity.
+- `execution_mode` (bool): Flag indicating if processor is executing.
 
 ### Methods
 
-#### `__init__(capacity: int, refresh_time: float)`
+#### `__init__(self, capacity: int, refresh_time: float) -> None`
 
-Initializes an ActionProcessor instance.
+Initializes a BaseProcessor instance.
 
-- **Parameters:**
-  - `capacity: int` - Max number of actions processed concurrently.
-  - `refresh_time: float` - Time interval between processing cycles.
-- **Raises:**
-  - `ValueError` - If capacity < 0 or refresh_time is negative.
+#### `async enqueue(self, event: Event) -> None`
 
-#### `async enqueue(action: ObservableAction) -> None`
+Enqueues an event to the processor queue.
 
-Enqueues an action to the processor queue.
+#### `async dequeue(self) -> Event`
 
-- **Parameters:**
-  - `action: ObservableAction` - The action to be added to the queue.
+Dequeues an event from the processor queue.
 
-#### `async dequeue() -> ObservableAction`
-
-Dequeues an action from the processor queue.
-
-- **Returns:**
-  - `ObservableAction` - The next action in the queue.
-
-#### `async join() -> None`
+#### `async join(self) -> None`
 
 Blocks until all items in the queue have been processed.
 
-#### `async stop() -> None`
+#### `async stop(self) -> None`
 
-Signals the processor to stop processing actions.
+Signals the processor to stop processing events.
 
-#### `async start() -> None`
+#### `async start(self) -> None`
 
 Allows the processor to start or continue processing.
 
-#### `async process() -> None`
+#### `is_stopped(self) -> bool`
 
-Processes the work items in the queue.
+Indicates whether the processor has been stopped.
 
-#### `async execute()`
+#### `@classmethod async create(cls, **kwargs: Any) -> BaseProcessor`
 
-Executes the processor, continuously processing actions until stopped.
+Class method to create an instance of the processor.
 
-#### `@classmethod async create(**kwargs: Any) -> ActionProcessor`
+#### `@abstractmethod async process(self) -> None`
 
-Class method to create an instance of ActionProcessor.
+Abstract method to process events.
 
-- **Parameters:**
-  - `**kwargs: Any` - Arguments passed to the ActionProcessor constructor.
-- **Returns:**
-  - `ActionProcessor` - A new instance of ActionProcessor.
+#### `async request_permission(self, **kwargs: Any) -> bool`
 
-#### `async request_permission(**kwargs: Any) -> bool`
+Placeholder method to request permission before processing an event.
 
-Placeholder method to request permission before processing an action.
+#### `async execute(self) -> None`
 
-- **Parameters:**
-  - `**kwargs: Any` - Arbitrary keyword arguments for requesting permission.
-- **Returns:**
-  - `bool` - Always returns True, indicating permission is granted.
+Executes the processor, continuously processing events until stopped.
 
-#### `async get_processing_status() -> dict`
+## ActionProcessor
 
-Retrieves the current processing status.
+`ActionProcessor` is a concrete implementation of BaseProcessor for processing actions.
 
-- **Returns:**
-  - `dict` - A dictionary containing the following keys:
-    - `queued: int` - Number of actions in the queue.
-    - `active: int` - Number of actions currently being processed.
-    - `completed: int` - Number of actions that have been processed.
+### Attributes
 
-#### `set_error_handler(handler: Callable[[Exception, ObservableAction], None]) -> None`
+Inherits all attributes from BaseProcessor.
 
-Sets a custom error handler for action processing errors.
+- `observation_type` (type): Set to ObservableAction.
 
-- **Parameters:**
-  - `handler: Callable[[Exception, ObservableAction], None]` - A function to handle errors during action processing.
+### Methods
 
-## Usage Example
+Inherits all methods from BaseProcessor.
 
-```python
-async def main():
-    processor = await ActionProcessor.create(capacity=10, refresh_time=5)
+#### `async process(self) -> None`
 
-    def error_handler(error: Exception, action: ObservableAction):
-        print(f"Error processing action {action.ln_id}: {error}")
-
-    processor.set_error_handler(error_handler)
-
-    await processor.start()
-
-    action = ObservableAction(...)
-    await processor.enqueue(action)
-    await processor.process()
-
-    status = await processor.get_processing_status()
-    print(f"Current status: {status}")
-
-    await processor.stop()
-
-asyncio.run(main())
-```
-
-This example shows how to create an ActionProcessor, enqueue actions, process them, and handle potential errors.
+Processes the work items in the queue. It processes items up to the available capacity, marking each action as `PROCESSING` before execution. After processing, the capacity is reset.
