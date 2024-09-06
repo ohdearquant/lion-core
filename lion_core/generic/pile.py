@@ -55,33 +55,42 @@ PILE_KEY_TYPE = int | str | slice
 
 class Pile(Element, Collective, Generic[T]):
     """
-    thread-safe async-compatible, ordered collection of Observable elements.
+    A thread-safe, async-compatible, ordered collection of Observable elements.
 
-    Pile is a core container in the Lion framework for managing collections
-    of Observable objects. It maintains item order and allows fast access
-    by unique identifiers, combining list and dictionary characteristics.
+    Pile is a core container in the Lion framework, combining characteristics
+    of lists and dictionaries. It maintains item order while allowing fast
+    access by unique identifiers.
 
     Key Features:
-        - Ordered storage with fast access (O(1) by index or Lion ID)
-        - Optional type enforcement
-        - Thread-safe write operations
-        - Asynchronous support for key operations
-        - Flexible synchronous and asynchronous iteration
+    - Ordered storage with O(1) access by index or Lion ID
+    - Optional type enforcement for items
+    - Thread-safe write operations
+    - Asynchronous support for key operations
+    - Flexible synchronous and asynchronous iteration
+    - Set-like operations (union, intersection, symmetric difference)
 
     Thread Safety:
-        - State-modifying methods are thread-safe
-        - Read-only methods are not synchronized for performance
-        - Caution advised when iterating during modifications
+    - State-modifying methods are thread-safe
+    - Read-only methods are not synchronized for performance
+    - Use caution when iterating during modifications
 
     Asynchronous Support:
-        - Async versions of state-modifying methods (prefixed with 'a')
-        - Asynchronous iteration via __aiter__
-        - Read-only methods safe in async contexts without 'await'
+    - Async versions of state-modifying methods (prefixed with 'a')
+    - Asynchronous iteration via __aiter__
+    - Read-only methods are safe in async contexts without 'await'
+
+    Type Enforcement:
+    - Optional strict type checking for items
+    - Allows subclass types when not in strict mode
+
+    Set-like Operations:
+    - Supports union (|, |=), intersection (&, &=), and symmetric
+      difference (^, ^=) operations
 
     Args:
-        items: Initial items for the pile. Defaults to None.
+        items: Initial items for the pile.
         item_type: Allowed types for items. Defaults to None (any Observable).
-        order: Initial order of items. Defaults to None.
+        order: Initial order of items.
         strict: If True, enforces strict type checking. Defaults to False.
 
     Attributes:
@@ -90,49 +99,17 @@ class Pile(Element, Collective, Generic[T]):
         order (Progression): Maintains the order of items.
         strict (bool): Whether to enforce strict type checking.
 
-    Example:
-        >>> from lion_core.generic.pile import Pile
-        >>> from lion_core.abc import Observable
-        >>>
-        >>> class MyItem(Observable):
-        ...     def __init__(self, value):
-        ...         super().__init__()
-        ...         self.value = value
-        >>>
-        >>> # Create a Pile
-        >>> my_pile = Pile(items=[MyItem(1), MyItem(2)], item_type={MyItem})
-        >>>
-        >>> # Add items
-        >>> my_pile.include(MyItem(3))
-        >>>
-        >>> # Access items
-        >>> item = my_pile[0]  # By index
-        >>> print(item.value)
-        1
-        >>>
-        >>> # Iterate
-        >>> for item in my_pile:
-        ...     print(item.value)
-        1
-        2
-        3
-        >>>
-        >>> # Remove items
-        >>> removed_item = my_pile.pop(0)
-        >>> print(removed_item.value)
-        1
-
     Notes:
-        - Maintains a snapshot view during iteration to prevent concurrent
-          modification issues.
-        - When subclassing, use @synchronized and @async_synchronized
-          decorators for methods that modify state to maintain thread-safety.
-        - Not safe for concurrent writes from multiple threads or asyncio
-          tasks without external synchronization.
+    - Uses a snapshot view during iteration to prevent concurrent
+      modification issues.
+    - When subclassing, use @synchronized and @async_synchronized
+      decorators for methods that modify state to maintain thread-safety.
+    - Not safe for concurrent writes from multiple threads or asyncio
+      tasks without external synchronization.
 
     Warning:
-        Modifying the Pile during iteration may lead to unexpected behavior.
-        Use the iteration snapshot for safe concurrent access.
+    Modifying the Pile during iteration may lead to unexpected behavior.
+    Use the iteration snapshot for safe concurrent access.
     """
 
     pile_: dict[str, T] = Field(default_factory=dict)
@@ -498,6 +475,20 @@ class Pile(Element, Collective, Generic[T]):
         return self.values()
 
     def __ior__(self, other: Any | Pile) -> Pile:
+        """
+        Implement the |= operation (in-place union).
+
+        Updates current Pile with items from another Pile.
+
+        Args:
+            other: Another Pile or convertible object.
+
+        Returns:
+            Self with updated items.
+
+        Raises:
+            LionTypeError: If 'other' is invalid.
+        """
         if not isinstance(other, Pile):
             raise LionTypeError(
                 "Invalid type for Pile operation.",
@@ -509,6 +500,20 @@ class Pile(Element, Collective, Generic[T]):
         return self
 
     def __or__(self, other: Any | Pile) -> Pile:
+        """
+        Implement the | operation (union).
+
+        Creates a new Pile with items from both Piles.
+
+        Args:
+            other: Another Pile or convertible object.
+
+        Returns:
+            New Pile with combined items.
+
+        Raises:
+            LionTypeError: If 'other' is invalid.
+        """
         if not isinstance(other, Pile):
             raise LionTypeError(
                 "Invalid type for Pile operation.",
@@ -525,6 +530,20 @@ class Pile(Element, Collective, Generic[T]):
         return result
 
     def __ixor__(self, other: Any | Pile) -> Pile:
+        """
+        Implement the ^= operation (in-place symmetric difference).
+
+        Updates Pile to contain items in either Pile but not both.
+
+        Args:
+            other: Another Pile or convertible object.
+
+        Returns:
+            Self with updated items.
+
+        Raises:
+            LionTypeError: If 'other' is invalid.
+        """
         if not isinstance(other, Pile):
             raise LionTypeError(
                 "Invalid type for Pile operation.",
@@ -543,6 +562,20 @@ class Pile(Element, Collective, Generic[T]):
         return self
 
     def __xor__(self, other: Any | Pile) -> Pile:
+        """
+        Implement the ^ operation (symmetric difference).
+
+        Creates a new Pile with items in either Pile but not both.
+
+        Args:
+            other: Another Pile or convertible object.
+
+        Returns:
+            New Pile with symmetric difference of items.
+
+        Raises:
+            LionTypeError: If 'other' is invalid.
+        """
         if not isinstance(other, Pile):
             raise LionTypeError(
                 "Invalid type for Pile operation.",
@@ -566,6 +599,20 @@ class Pile(Element, Collective, Generic[T]):
         return result
 
     def __iand__(self, other: Any | Self) -> Pile:
+        """
+        Implement the &= operation (in-place intersection).
+
+        Updates Pile to contain only items in both Piles.
+
+        Args:
+            other: Another Pile or convertible object.
+
+        Returns:
+            Self with updated items.
+
+        Raises:
+            LionTypeError: If 'other' is invalid.
+        """
         if not isinstance(other, Pile):
             raise LionTypeError(
                 "Invalid type for Pile operation.",
@@ -581,6 +628,20 @@ class Pile(Element, Collective, Generic[T]):
         return self
 
     def __and__(self, other: Any | Pile) -> Pile:
+        """
+        Implement the & operation (intersection).
+
+        Creates a new Pile with items common to both Piles.
+
+        Args:
+            other: Another Pile or convertible object.
+
+        Returns:
+            New Pile with intersecting items.
+
+        Raises:
+            LionTypeError: If 'other' is invalid.
+        """
         if not isinstance(other, Pile):
             raise LionTypeError(
                 "Invalid type for Pile operation.",
@@ -649,78 +710,64 @@ class Pile(Element, Collective, Generic[T]):
     # Async Interface methods
     @async_synchronized
     async def asetitem(
-        self,
-        key: PILE_KEY_TYPE,
-        item: T | Iterable[T],
-        /,
+        self, key: PILE_KEY_TYPE, item: T | Iterable[T], /
     ) -> None:
-        """Asynchronously set an item or items in the Pile.
+        """
+        Asynchronously set an item or items in the Pile.
 
         Args:
-            key: The key to set. Can be an integer index, a string ID, or a
-                slice.
-            item: The item or items to set. Must be of type T or an iterable
-                of T for slices.
+            key: Index, ID, or slice to set.
+            item: Item(s) to set.
 
         Raises:
-            TypeError: If the item type is not allowed.
-            KeyError: If the key is invalid.
-            ValueError: If trying to set multiple items with a non-slice key.
+            TypeError: If item type is not allowed.
+            KeyError: If key is invalid.
+            ValueError: If setting multiple items with non-slice key.
         """
         self._setitem(key, item)
 
     @async_synchronized
     async def apop(
-        self,
-        key: PILE_KEY_TYPE,
-        default: Any = LN_UNDEFINED,
-        /,
-    ):
-        """Asynchronously remove and return an item or items from the Pile.
+        self, key: PILE_KEY_TYPE, default: Any = LN_UNDEFINED, /
+    ) -> T | None:
+        """
+        Asynchronously remove and return item(s) from the Pile.
 
         Args:
-            key: The key of the item(s) to remove. Can be an integer index,
-                a string ID, or a slice.
-            default: The value to return if the key is not found. Defaults to
-                LN_UNDEFINED.
+            key: Key of item(s) to remove.
+            default: Value to return if key not found.
 
         Returns:
-            The removed item(s), or the default value if not found.
+            Removed item(s) or default.
 
         Raises:
-            KeyError: If the key is not found and no default is provided.
+            KeyError: If key not found and no default provided.
         """
         return self._pop(key, default)
 
     @async_synchronized
-    async def aremove(
-        self,
-        item: T,
-        /,
-    ) -> None:
-        """Asynchronously remove a specific item from the Pile.
+    async def aremove(self, item: T, /) -> None:
+        """
+        Asynchronously remove a specific item from the Pile.
 
         Args:
-            item: The item to remove.
+            item: Item to remove.
 
         Raises:
-            ValueError: If the item is not found in the Pile.
+            ValueError: If item not found in the Pile.
         """
         self._remove(item)
 
     @async_synchronized
-    async def ainclude(
-        self,
-        item: T | Iterable[T],
-        /,
-    ) -> None:
-        """Asynchronously include item(s) in the Pile if not already present.
+    async def ainclude(self, item: T | Iterable[T], /) -> None:
+        """
+        Asynchronously include item(s) in the Pile if not present.
 
         Args:
-            item: Item or iterable of items to include.
+            item: Item(s) to include.
 
         Raises:
-            TypeError: If the item(s) are not of allowed types.
+            LionTypeError: If item(s) not of allowed types.
         """
         self._include(item)
         if item not in self:
@@ -732,18 +779,20 @@ class Pile(Element, Collective, Generic[T]):
         item: T | Iterable[T],
         /,
     ) -> None:
-        """Asynchronously exclude item(s) from the Pile if present.
+        """
+        Asynchronously exclude item(s) from the Pile if present.
 
         Args:
-            item: Item or iterable of items to exclude.
+            item: Item(s) to exclude.
 
         Note:
-            This method does not raise an error if an item is not found.
+            Does not raise error if item not found.
         """
         self._exclude(item)
 
     @async_synchronized
     async def aclear(self) -> None:
+        """Asynchronously remove all items from the Pile."""
         self._clear()
 
     @async_synchronized
@@ -752,6 +801,15 @@ class Pile(Element, Collective, Generic[T]):
         other: Any,
         /,
     ) -> None:
+        """
+        Asynchronously update Pile with items from another iterable or Pile.
+
+        Args:
+            other: Iterable or Pile to update from.
+
+        Raises:
+            TypeError: If items in 'other' not of allowed types.
+        """
         self._update(other)
 
     @async_synchronized
@@ -761,20 +819,27 @@ class Pile(Element, Collective, Generic[T]):
         default=LN_UNDEFINED,
         /,
     ) -> list | Any | T:
+        """
+        Asynchronously retrieve item(s) associated with the given key.
+
+        Args:
+            key: Key of item(s) to retrieve.
+            default: Value to return if key not found.
+
+        Returns:
+            Item(s) associated with key, or default if not found.
+        """
         return self._get(key, default)
 
     async def __aiter__(self) -> AsyncIterator[T]:
-        """Return an asynchronous iterator over the items in the Pile.
-
-        This method creates a snapshot of the current order to prevent
-        issues with concurrent modifications during iteration.
+        """
+        Return an asynchronous iterator over the items in the Pile.
 
         Yields:
             Items in the Pile in their current order.
 
         Note:
-            This method yields control to the event loop after each item,
-            allowing other async operations to run between iterations.
+            Yields control to event loop after each item.
         """
 
         async with self.async_lock:
@@ -785,7 +850,15 @@ class Pile(Element, Collective, Generic[T]):
             await asyncio.sleep(0)  # Yield control to the event loop
 
     async def __anext__(self) -> T:
-        """Asynchronously return the next item in the Pile."""
+        """
+        Asynchronously return the next item in the Pile.
+
+        Returns:
+            Next item in the Pile.
+
+        Raises:
+            StopAsyncIteration: When no more items in the Pile.
+        """
         try:
             return await anext(self.AsyncPileIterator(self))
         except StopAsyncIteration:
@@ -834,20 +907,6 @@ class Pile(Element, Collective, Generic[T]):
                 raise ItemNotFoundError(f"Key {key}. Error:{e}")
 
     def _setitem(self, key: Any, item: Any) -> None:
-        """
-        Set new values in the pile using various key types.
-
-        Handles single/multiple assignments, ensures type consistency.
-        Supports index/slice, LionID, and LionIDable key access.
-
-        Args:
-            key: Key to set items. Can be index, slice, LionID, LionIDable.
-            item: Item(s) to set. Can be single item or collection.
-
-        Raises:
-            ValueError: Length mismatch or multiple items to single key.
-            LionTypeError: Item type doesn't match allowed types.
-        """
         item_dict = self._validate_pile(item)
 
         item_order = []
@@ -886,19 +945,6 @@ class Pile(Element, Collective, Generic[T]):
             self.pile_.update(item_dict)
 
     def _get(self, key: Any, default: Any = LN_UNDEFINED) -> list | Any | T:
-        """
-        Retrieve item(s) associated with given key.
-
-        Args:
-            key: Key of item(s) to retrieve. Can be single or collection.
-            default: Default value if key not found.
-
-        Returns:
-            Retrieved item(s) or default if key not found.
-
-        Raises:
-            ItemNotFoundError: If key not found and no default specified.
-        """
         if isinstance(key, int | slice):
             try:
                 return self[key]
@@ -932,19 +978,6 @@ class Pile(Element, Collective, Generic[T]):
                 return default
 
     def _pop(self, key: Any, default: Any = LN_UNDEFINED) -> list | Any | T:
-        """
-        Remove and return item(s) associated with given key.
-
-        Args:
-            key: Key of item(s) to remove. Can be single or collection.
-            default: Default value if key not found.
-
-        Returns:
-            Removed item(s) or default if key not found.
-
-        Raises:
-            ItemNotFoundError: If key not found and no default specified.
-        """
         if isinstance(key, int | slice):
             try:
                 pops = self.order[key]
@@ -981,27 +1014,12 @@ class Pile(Element, Collective, Generic[T]):
                 return default
 
     def _remove(self, item: T):
-        """
-        Remove an item from the pile.
-
-        Args:
-            item: The item to remove.
-
-        Raises:
-            ItemNotFoundError: If the item is not found in the pile.
-        """
         if item in self:
             self.pop(item)
             return
         raise ItemNotFoundError(f"{item}")
 
     def _include(self, item: Any):
-        """
-        Include item(s) in pile if not already present.
-
-        Args:
-            item: Item(s) to include. Can be single item or collection.
-        """
         item_dict = self._validate_pile(item)
 
         item_order = []
@@ -1013,12 +1031,6 @@ class Pile(Element, Collective, Generic[T]):
         self.pile_.update(item_dict)
 
     def _exclude(self, item: Any):
-        """
-        Exclude item(s) from pile if present.
-
-        Args:
-            item: Item(s) to exclude. Can be single item or collection.
-        """
         item = to_list_type(item)
         exclude_list = []
         for i in item:
@@ -1028,32 +1040,13 @@ class Pile(Element, Collective, Generic[T]):
             self.pop(exclude_list)
 
     def _clear(self) -> None:
-        """Remove all items from the pile."""
         self.pile_.clear()
         self.order.clear()
 
     def _update(self, other: Any):
-        """Update pile with another collection of items."""
         self.include(other)
 
     def _validate_item_type(self, value: Any) -> set[type[Observable]] | None:
-        """
-        Validate the item type for the pile.
-
-        Ensures that the provided item type is a subclass of Element or iModel.
-        Raises an error if the validation fails.
-
-        Args:
-            value: The item type to validate. Can be a single type or a list of
-                    types.
-
-        Returns:
-            set: A set of validated item types.
-
-        Raises:
-            LionTypeError: If an invalid item type is provided.
-            LionValueError: If duplicate item types are detected.
-        """
         if value is None:
             return None
 
@@ -1076,7 +1069,6 @@ class Pile(Element, Collective, Generic[T]):
             return set(value)
 
     def _validate_pile(self, value: Any) -> dict[str, T]:
-        """Validate and convert the items to be added to the pile."""
         if not value:
             return {}
 
@@ -1131,12 +1123,6 @@ class Pile(Element, Collective, Generic[T]):
         return Progression(order=value)
 
     def _append(self, item: T):
-        """
-        Append item to end of pile.
-
-        Args:
-            item: Item to append. Can be any lion object, including `Pile`.
-        """
         self.update(item)
 
     def _insert(self, index: int, item: T):
@@ -1172,9 +1158,27 @@ class Pile(Element, Collective, Generic[T]):
 
     @async_synchronized
     async def adump(self, clear: bool = False) -> dict:
-        self.dump(clear=clear)
+        """
+        Asynchronously dump Pile contents to a dictionary.
+
+        Args:
+            clear: If True, clear the Pile after dumping.
+
+        Returns:
+            Dictionary representation of the Pile.
+        """
+        return self.dump(clear)
 
     def dump(self, clear: bool = False) -> dict:
+        """
+        Dump Pile contents to a dictionary.
+
+        Args:
+            clear: If True, clear the Pile after dumping.
+
+        Returns:
+            Dictionary representation of the Pile.
+        """
         result = self.to_dict()
         if clear:
             self.clear()
@@ -1182,6 +1186,16 @@ class Pile(Element, Collective, Generic[T]):
 
     @classmethod
     def load(cls, data: dict, **kwargs: Any) -> Pile:
+        """
+        Load a Pile instance from a dictionary representation.
+
+        Args:
+            data: A dictionary containing the Pile data.
+            **kwargs: Additional keyword arguments for Pile initialization.
+
+        Returns:
+            A new Pile instance created from the provided data.
+        """
         return cls.from_dict(data)
 
 
@@ -1191,7 +1205,7 @@ def pile(
     item_type: type[Observable] | set[type[Observable]] | None = None,
     order: list[str] | None = None,
     strict: bool = False,
-    **kwargs,
+    **kwargs: Any,
 ) -> Pile:
     """
     Create a new Pile instance.
